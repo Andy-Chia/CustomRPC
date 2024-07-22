@@ -1,6 +1,7 @@
 package com.andycoder.customrpc.version1.rpcserver;
 
-import cn.hutool.json.JSONUtil;
+import com.andycoder.customrpc.version1.common.User;
+import com.andycoder.customrpc.version1.service.impl.UserServiceImpl;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -10,31 +11,34 @@ import java.net.Socket;
 
 public class RPCServer {
     public static void main(String[] args) {
+        UserServiceImpl userService = new UserServiceImpl();
         try {
-
-            ServerSocket serverSocket = new ServerSocket(18001);
-            System.out.println("RPC服务端已经启动，端口:" + 18001);
+            ServerSocket serverSocket = new ServerSocket(8899);
+            System.out.println("服务端启动了");
+            // BIO的方式监听Socket
             while (true) {
-                Socket accept = serverSocket.accept();
+                Socket socket = serverSocket.accept();
+                // 开启一个线程去处理
                 new Thread(() -> {
                     try {
-                        ObjectInputStream objectInputStream = new ObjectInputStream(accept.getInputStream());
-                        ObjectOutputStream objectOutputStream = new ObjectOutputStream(accept.getOutputStream());
-                        Object requestObj = objectInputStream.readObject();
-                        System.out.println("RPC服务端接收到请求:" + JSONUtil.toJsonStr(requestObj));
-                        objectOutputStream.writeObject(requestObj);
-                        objectOutputStream.flush();
+                        ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+                        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+                        // 读取客户端传过来的id
+                        Integer id = ois.readInt();
+                        User userByUserId = userService.getUserByUserId(id);
+                        // 写入User对象给客户端
+                        oos.writeObject(userByUserId);
+                        oos.flush();
                     } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    } catch (ClassNotFoundException e) {
-                        throw new RuntimeException(e);
+                        e.printStackTrace();
+                        System.out.println("从IO中读取数据错误");
                     }
                 }).start();
             }
 
-
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
+            System.out.println("服务器启动失败");
         }
     }
 }
